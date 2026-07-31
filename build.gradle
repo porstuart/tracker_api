@@ -1,0 +1,137 @@
+
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+
+	dependencies {
+		classpath "org.postgresql:postgresql:42.7.7"
+		classpath "org.flywaydb:flyway-database-postgresql:10.22.0"
+	}
+}
+
+plugins {
+	id 'java'
+
+	id 'org.springframework.boot' version '3.5.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+
+	id 'nu.studer.jooq' version '9.0'
+	id 'org.flywaydb.flyway' version '10.22.0'
+}
+
+group = 'com.expenses'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	jooqVersion = '3.19.18'
+	postgresVersion = '42.7.7'
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-jooq'
+
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
+	runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	jooqGenerator "org.postgresql:postgresql:${postgresVersion}"
+	jooqGenerator "org.jooq:jooq-meta:${jooqVersion}"
+	jooqGenerator "org.jooq:jooq-codegen:${jooqVersion}"
+}
+
+flyway {
+	url = 'jdbc:postgresql://localhost:5432/expenses_tracker'
+	user = 'tracker_user'
+	password = 'tracker_pass'
+
+	locations = ['filesystem:src/main/resources/db/migration']
+}
+
+jooq {
+	version = jooqVersion
+
+	configurations {
+		main {
+			generateSchemaSourceOnCompilation = false
+
+			generationTool {
+				logging = org.jooq.meta.jaxb.Logging.WARN
+
+				jdbc {
+					driver = 'org.postgresql.Driver'
+					url = 'jdbc:postgresql://localhost:5432/expenses_tracker'
+					user = 'tracker_user'
+					password = 'tracker_pass'
+				}
+
+				generator {
+					name = 'org.jooq.codegen.JavaGenerator'
+
+					database {
+						name = 'org.jooq.meta.postgres.PostgresDatabase'
+
+						inputSchema = 'public'
+
+						includes = '.*'
+						excludes = 'flyway_schema_history'
+					}
+
+					generate {
+						records = true
+						pojos = true
+						daos = true
+
+						javaTimeTypes = true
+						fluentSetters = true
+
+						generatedAnnotation = true
+						generatedAnnotationDate = false
+					}
+
+					target {
+						packageName = 'com.expenses.generated'
+						directory = 'build/generated-src/jooq/main'
+					}
+				}
+			}
+		}
+	}
+}
+
+sourceSets {
+	main {
+		java {
+			srcDirs += 'build/generated-src/jooq/main'
+		}
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+tasks.named('generateJooq') {
+	dependsOn tasks.named('flywayMigrate')
+}
