@@ -4,4 +4,6 @@
 .github/instructions/codacy.instructions.md
 .gradle/
 build/
+bin/
 .DS_Store
+settings.json
